@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Advisor - AI Trading Assistant</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+        header { text-align: center; color: white; padding: 40px 0; }
+        header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        header p { font-size: 1.2em; opacity: 0.9; }
+
+        nav { text-align:center; margin-bottom:25px; }
+        nav a { color:white; text-decoration:none; padding:10px 20px; background:rgba(255,255,255,0.2); border-radius:20px; margin:0 5px; display:inline-block; transition:background 0.2s; }
+        nav a:hover { background:rgba(255,255,255,0.35); }
+
+        .search-box {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .search-box input {
+            padding: 15px 20px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 50px;
+            width: 320px;
+            outline: none;
+        }
+        .search-box input:focus { border-color: #2a5298; }
+        .search-box button {
+            padding: 15px 30px;
+            font-size: 16px;
+            background: #2a5298;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            margin-left: 10px;
+            transition: transform 0.2s;
+        }
+        .search-box button:hover { transform: scale(1.05); background: #1e3c72; }
+        .search-box .hint { margin-top: 15px; color: #666; font-size: 0.9em; }
+
+        .result-card {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            border-left: 5px solid #2a5298;
+            animation: slideIn 0.5s ease;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .result-header .left h2 { color: #1e3c72; font-size: 1.8em; }
+        .result-header .left .sub { color: #666; font-size: 0.95em; }
+        .result-header .right { text-align: right; }
+        .big-price { font-size: 2.2em; font-weight: bold; color: #2a5298; }
+        .big-change { font-size: 1.1em; font-weight: 600; margin-top: 4px; }
+        .positive { color: #27ae60; }
+        .negative { color: #e74c3c; }
+
+        .chart-container {
+            position: relative;
+            height: 260px;
+            margin: 20px 0;
+            background: #fafbfc;
+            border-radius: 10px;
+            padding: 10px;
+        }
+
+        .indicators-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .indicator-badge {
+            background: #f0f4f8;
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            color: #444;
+            border: 1px solid #dde3ea;
+        }
+        .indicator-badge .val { font-weight: 700; color: #1e3c72; }
+        .indicator-badge .val-green { color: #27ae60; }
+        .indicator-badge .val-red { color: #e74c3c; }
+
+        .recommendation {
+            display: inline-block;
+            padding: 8px 22px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 1em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 10px;
+        }
+        .rec-buy { background: #d4edda; color: #155724; }
+        .rec-sell { background: #f8d7da; color: #721c24; }
+        .rec-hold { background: #fff3cd; color: #856404; }
+
+        .reason-box {
+            margin-top: 12px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-size: 0.9em;
+            color: #555;
+            line-height: 1.5;
+            border-left: 3px solid #2a5298;
+        }
+
+        .ai-insight {
+            margin-top: 15px;
+            padding: 18px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        .ai-insight::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: pulse 4s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+        .ai-header {
+            font-weight: bold;
+            font-size: 0.95em;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+            z-index: 1;
+        }
+        .ai-text {
+            font-size: 1em;
+            line-height: 1.6;
+            font-style: italic;
+            position: relative;
+            z-index: 1;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .ai-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            margin-left: auto;
+        }
+
+        h2.section-title { color: white; margin-bottom: 20px; font-size: 1.4em; }
+        .stock-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+            gap: 20px;
+        }
+        .stock-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        .stock-card:hover { transform: translateY(-5px); }
+        .stock-symbol { font-size: 1.4em; font-weight: bold; color: #1e3c72; }
+        .stock-name { color: #666; margin-bottom: 10px; font-size: 0.9em; }
+        .stock-price { font-size: 1.6em; font-weight: bold; color: #2a5298; }
+        .stock-change { font-size: 1em; margin-top: 5px; font-weight: 600; }
+        .prev-close { font-size: 0.75em; color: #888; margin-top: 4px; }
+
+        .mini-rec {
+            display: inline-block;
+            padding: 5px 14px;
+            border-radius: 15px;
+            font-weight: bold;
+            font-size: 0.8em;
+            margin-top: 12px;
+            text-transform: uppercase;
+        }
+        .mini-reason { margin-top: 8px; font-size: 0.8em; color: #666; font-style: italic; }
+
+        footer { text-align: center; color: white; padding: 40px 20px; opacity: 0.7; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>📈 Stock Advisor</h1>
+        <p>AI-Powered Technical Analysis & Trading Signals</p>
+    </header>
+
+    <nav>
+        <a href="/">🏠 Home</a>
+        <a href="/watchlist">⭐ Watchlist</a>
+        <a href="/portfolio">💼 Portfolio</a>
+    </nav>
+
+    <div class="search-box">
+        <form th:action="@{/search}" method="post">
+            <input type="text" name="symbol" th:value="${searchSymbol}"
+                   placeholder="Enter symbol (e.g., AAPL, TSLA, RELIANCE.NS)" required>
+            <button type="submit">🔍 Analyze</button>
+        </form>
+        <p class="hint">Try: AAPL, GOOGL, TSLA, MSFT, AMZN, NVDA, INFY, RELIANCE.NS</p>
+    </div>
+
+    <!-- DETAILED ANALYSIS RESULT -->
+    <div th:if="${searchedStock}" class="result-card">
+        <div class="result-header">
+            <div class="left">
+                <h2 th:text="${searchedStock.symbol} + ' - ' + ${searchedStock.name}">AAPL - Apple</h2>
+                <div class="sub">Technical Analysis Report</div>
+            </div>
+            <div class="right">
+                <div class="big-price" th:text="'$' + ${#numbers.formatDecimal(searchedStock.currentPrice, 1, 2)}">$189.52</div>
+                <div class="big-change" th:class="${searchedStock.changePercent >= 0} ? 'positive' : 'negative'">
+                    <span th:if="${searchedStock.changePercent >= 0}">▲ +</span>
+                    <span th:if="${searchedStock.changePercent < 0}">▼ </span>
+                    <span th:text="${#numbers.formatDecimal(searchedStock.changePercent, 1, 2)} + '%'">1.11%</span>
+                    <span style="font-size:0.85em;color:#888;" th:text="' (Prev: $' + ${#numbers.formatDecimal(searchedStock.previousClose, 1, 2)} + ')'"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-container" th:if="${chartDates != null}">
+            <canvas id="stockChart"></canvas>
+        </div>
+
+        <div class="indicators-row" th:if="${searchedStock.rsi14 > 0}">
+            <div class="indicator-badge">
+                RSI(14):
+                <span class="val" th:classappend="${searchedStock.rsi14 > 70} ? 'val-red' : (${searchedStock.rsi14 < 30} ? 'val-green' : '')"
+                      th:text="${searchedStock.rsi14}">50</span>
+            </div>
+            <div class="indicator-badge">
+                SMA20: <span class="val" th:text="${#numbers.formatDecimal(searchedStock.sma20, 1, 2)}">180</span>
+            </div>
+            <div class="indicator-badge">
+                SMA50: <span class="val" th:text="${#numbers.formatDecimal(searchedStock.sma50, 1, 2)}">175</span>
+            </div>
+            <div class="indicator-badge">
+                MACD:
+                <span class="val" th:classappend="${searchedStock.macdHistogram > 0} ? 'val-green' : 'val-red'"
+                      th:text="${#numbers.formatDecimal(searchedStock.macdHistogram, 1, 2)}">0.5</span>
+            </div>
+        </div>
+
+        <div class="recommendation"
+             th:classappend="${searchedStock.recommendation == 'BUY'} ? 'rec-buy' :
+                                 (${searchedStock.recommendation == 'SELL'} ? 'rec-sell' : 'rec-hold')"
+             th:text="${searchedStock.recommendation}">HOLD</div>
+
+        <div class="reason-box" th:text="${searchedStock.reason}">Analysis reason here.</div>
+
+        <div class="ai-insight" th:if="${searchedStock.aiExplanation}">
+            <div class="ai-header">
+                <span>🤖 AI Insight</span>
+                <span class="ai-badge">Spring AI</span>
+            </div>
+            <div class="ai-text" th:text="${searchedStock.aiExplanation}">
+                AI-generated trading insight will appear here.
+            </div>
+        </div>
+    </div>
+
+    <h2 class="section-title">📊 Popular Stocks</h2>
+    <div class="stock-grid">
+        <div th:each="stock : ${stocks}" class="stock-card">
+            <div class="stock-symbol" th:text="${stock.symbol}">AAPL</div>
+            <div class="stock-name" th:text="${stock.name}">Apple Inc.</div>
+            <div class="stock-price" th:text="'$' + ${#numbers.formatDecimal(stock.currentPrice, 1, 2)}">$189.52</div>
+            <div class="stock-change" th:class="${stock.changePercent >= 0} ? 'positive' : 'negative'">
+                <span th:if="${stock.changePercent >= 0}">▲ +</span>
+                <span th:if="${stock.changePercent < 0}">▼ </span>
+                <span th:text="${#numbers.formatDecimal(stock.changePercent, 1, 2)} + '%'">1.11%</span>
+            </div>
+            <div class="prev-close" th:text="'Prev Close: $' + ${#numbers.formatDecimal(stock.previousClose, 1, 2)}">Prev: $187.43</div>
+
+            <div class="mini-rec"
+                 th:classappend="${stock.recommendation == 'BUY'} ? 'rec-buy' :
+                                     (${stock.recommendation == 'SELL'} ? 'rec-sell' : 'rec-hold')"
+                 th:text="${stock.recommendation}">HOLD</div>
+            <div class="mini-reason" th:text="${stock.reason}">Reason</div>
+        </div>
+    </div>
+
+    <footer>
+        <p>Built by Shivam Shrikhande | Spring Boot + Technical Analysis + Spring AI</p>
+        <p style="margin-top:5px;font-size:0.8em;">Phase 5: Database + Watchlist + Portfolio</p>
+    </footer>
+</div>
+
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    var chartLabels = /*[[${chartDates}]]*/ [];
+    var chartData = /*[[${chartPrices}]]*/ [];
+    /*]]>*/
+
+    if (chartLabels && chartLabels.length > 0) {
+        const ctx = document.getElementById('stockChart').getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 250);
+        gradient.addColorStop(0, 'rgba(42, 82, 152, 0.25)');
+        gradient.addColorStop(1, 'rgba(42, 82, 152, 0.0)');
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartLabels,
+                datasets: [{
+                    label: 'Closing Price',
+                    data: chartData,
+                    borderColor: '#2a5298',
+                    backgroundColor: gradient,
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                return '$' + context.parsed.y.toFixed(2);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { maxTicksLimit: 8, font: { size: 10 } }
+                    },
+                    y: {
+                        grid: { color: '#e9ecef' },
+                        ticks: {
+                            callback: function(value) { return '$' + value.toFixed(0); },
+                            font: { size: 10 }
+                        }
+                    }
+                },
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
+                }
+            }
+        });
+    }
+</script>
+</body>
+</html>

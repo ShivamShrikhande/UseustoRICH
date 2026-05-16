@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>My Portfolio - Stock Advisor</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); min-height: 100vh; color: #333; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { text-align: center; color: white; padding: 30px 0; }
+        header h1 { font-size: 2em; }
+        nav { text-align:center; margin-bottom:25px; }
+        nav a { color:white; text-decoration:none; padding:10px 20px; background:rgba(255,255,255,0.2); border-radius:20px; margin:0 5px; display:inline-block; transition:background 0.2s; }
+        nav a:hover { background:rgba(255,255,255,0.35); }
+        .card { background:white; padding:25px; border-radius:15px; margin-bottom:20px; box-shadow:0 5px 20px rgba(0,0,0,0.1); }
+        .card h2 { color:#1e3c72; margin-bottom:15px; font-size:1.3em; }
+        .form-row { display:flex; gap:10px; flex-wrap:wrap; align-items:end; }
+        .form-row input, .form-row select { padding:10px 15px; border:2px solid #ddd; border-radius:8px; font-size:14px; }
+        .form-row button { padding:10px 20px; background:#2a5298; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; }
+        .summary-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin-bottom:20px; }
+        .summary-card { background:white; padding:20px; border-radius:12px; text-align:center; box-shadow:0 4px 15px rgba(0,0,0,0.1); }
+        .summary-card .label { color:#666; font-size:0.9em; margin-bottom:8px; }
+        .summary-card .value { font-size:1.6em; font-weight:bold; color:#1e3c72; }
+        .summary-card .pnl { font-size:1em; margin-top:4px; font-weight:600; }
+        table { width:100%; border-collapse:collapse; margin-top:15px; font-size:0.95em; }
+        th, td { padding:10px; text-align:left; border-bottom:1px solid #eee; }
+        th { background:#f0f4f8; color:#1e3c72; font-weight:600; }
+        .btn-remove { padding:6px 14px; background:#e74c3c; color:white; border:none; border-radius:6px; cursor:pointer; font-size:0.85em; }
+        .positive { color:#27ae60; font-weight:600; }
+        .negative { color:#e74c3c; font-weight:600; }
+        .rec-badge { display:inline-block; padding:3px 10px; border-radius:10px; font-size:0.75em; font-weight:bold; text-transform:uppercase; }
+        .rec-buy { background:#d4edda; color:#155724; }
+        .rec-sell { background:#f8d7da; color:#721c24; }
+        .rec-hold { background:#fff3cd; color:#856404; }
+        .empty { text-align:center; padding:40px; color:#888; font-style:italic; }
+        footer { text-align:center; color:white; padding:30px; opacity:0.7; font-size:0.85em; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>💼 My Portfolio</h1>
+    </header>
+    <nav>
+        <a href="/">🏠 Home</a>
+        <a href="/watchlist">⭐ Watchlist</a>
+        <a href="/portfolio">💼 Portfolio</a>
+    </nav>
+
+    <div class="card">
+        <h2>Record New Trade</h2>
+        <form th:action="@{/portfolio/add}" method="post" class="form-row">
+            <div>
+                <label style="display:block;font-size:0.85em;color:#666;margin-bottom:4px;">Stock</label>
+                <select name="symbol" required style="width:200px;" onchange="document.getElementById('pName').value=this.options[this.selectedIndex].text.split(' - ')[1]||'';">
+                    <option value="">Select...</option>
+                    <option th:each="s : ${popularStocks}" th:value="${s.symbol}" th:text="${s.symbol} + ' - ' + ${s.name}">AAPL</option>
+                </select>
+            </div>
+            <input type="hidden" name="name" id="pName" value=""/>
+            <div>
+                <label style="display:block;font-size:0.85em;color:#666;margin-bottom:4px;">Buy Price ($)</label>
+                <input type="number" name="buyPrice" step="0.01" required style="width:120px;" placeholder="150.00"/>
+            </div>
+            <div>
+                <label style="display:block;font-size:0.85em;color:#666;margin-bottom:4px;">Qty</label>
+                <input type="number" name="quantity" min="1" required style="width:80px;" placeholder="10"/>
+            </div>
+            <div>
+                <label style="display:block;font-size:0.85em;color:#666;margin-bottom:4px;">Date</label>
+                <input type="date" name="buyDate" required style="width:140px;"/>
+            </div>
+            <button type="submit">➕ Add Trade</button>
+        </form>
+    </div>
+
+    <div th:if="${!#lists.isEmpty(portfolio)}">
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="label">Total Invested</div>
+                <div class="value" th:text="'$' + ${#numbers.formatDecimal(totalInvested, 1, 2)}">$5000</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">Current Value</div>
+                <div class="value" th:text="'$' + ${#numbers.formatDecimal(totalCurrent, 1, 2)}">$5500</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">Total P&L</div>
+                <div class="value" th:text="'$' + ${#numbers.formatDecimal(totalPnl, 1, 2)}">$500</div>
+                <div class="pnl" th:class="${totalPnl >= 0} ? 'positive' : 'negative'"
+                     th:text="${totalPnl >= 0} ? '▲ +' + ${#numbers.formatDecimal((totalPnl/totalInvested)*100, 1, 2)} + '%' : '▼ ' + ${#numbers.formatDecimal((totalPnl/totalInvested)*100, 1, 2)} + '%'">+10%</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Holdings</h2>
+            <table>
+                <thead>
+                <tr>
+                    <th>Stock</th>
+                    <th>Buy Price</th>
+                    <th>Qty</th>
+                    <th>Current</th>
+                    <th>Invested</th>
+                    <th>Value</th>
+                    <th>P&L</th>
+                    <th>Signal</th>
+                    <th>Action</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="item : ${portfolio}">
+                    <td>
+                        <strong th:text="${item.symbol}">AAPL</strong><br>
+                        <small th:text="${item.name}" style="color:#888;">Apple</small>
+                    </td>
+                    <td th:text="'$' + ${#numbers.formatDecimal(item.buyPrice, 1, 2)}">$150</td>
+                    <td th:text="${item.quantity}">10</td>
+                    <td th:text="'$' + ${#numbers.formatDecimal(item.currentPrice, 1, 2)}">$175</td>
+                    <td th:text="'$' + ${#numbers.formatDecimal(item.invested, 1, 2)}">$1500</td>
+                    <td th:text="'$' + ${#numbers.formatDecimal(item.currentValue, 1, 2)}">$1750</td>
+                    <td th:class="${item.pnl >= 0} ? 'positive' : 'negative'">
+                        <span th:text="'$' + ${#numbers.formatDecimal(item.pnl, 1, 2)}">$250</span><br>
+                        <small th:text="${#numbers.formatDecimal(item.pnlPercent, 1, 2)} + '%'">+16%</small>
+                    </td>
+                    <td>
+                        <span class="rec-badge" th:classappend="${item.recommendation == 'BUY'} ? 'rec-buy' : (${item.recommendation == 'SELL'} ? 'rec-sell' : 'rec-hold')" th:text="${item.recommendation}">HOLD</span>
+                    </td>
+                    <td>
+                        <form th:action="@{'/portfolio/remove/' + ${item.id}}" method="post" style="display:inline;">
+                            <button type="submit" class="btn-remove">🗑️</button>
+                        </form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div th:if="${#lists.isEmpty(portfolio)}" class="card empty">
+        No trades recorded yet. Add your first trade above.
+    </div>
+
+    <footer>
+        <p>Built by Shivam Shrikhande | Phase 5: Portfolio Tracker + H2 Database</p>
+    </footer>
+</div>
+</body>
+</html>

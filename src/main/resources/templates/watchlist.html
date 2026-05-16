@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>My Watchlist - Stock Advisor</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); min-height: 100vh; color: #333; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { text-align: center; color: white; padding: 30px 0; }
+        header h1 { font-size: 2em; }
+        nav { text-align:center; margin-bottom:25px; }
+        nav a { color:white; text-decoration:none; padding:10px 20px; background:rgba(255,255,255,0.2); border-radius:20px; margin:0 5px; display:inline-block; transition:background 0.2s; }
+        nav a:hover { background:rgba(255,255,255,0.35); }
+        .card { background:white; padding:25px; border-radius:15px; margin-bottom:20px; box-shadow:0 5px 20px rgba(0,0,0,0.1); }
+        .card h2 { color:#1e3c72; margin-bottom:15px; font-size:1.3em; }
+        .form-row { display:flex; gap:10px; flex-wrap:wrap; align-items:end; }
+        .form-row select, .form-row input { padding:10px 15px; border:2px solid #ddd; border-radius:8px; font-size:14px; }
+        .form-row button { padding:10px 20px; background:#2a5298; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; }
+        table { width:100%; border-collapse:collapse; margin-top:15px; }
+        th, td { padding:12px; text-align:left; border-bottom:1px solid #eee; }
+        th { background:#f0f4f8; color:#1e3c72; font-weight:600; }
+        .btn-remove { padding:6px 14px; background:#e74c3c; color:white; border:none; border-radius:6px; cursor:pointer; font-size:0.85em; }
+        .rec-badge { display:inline-block; padding:4px 12px; border-radius:12px; font-size:0.8em; font-weight:bold; text-transform:uppercase; }
+        .rec-buy { background:#d4edda; color:#155724; }
+        .rec-sell { background:#f8d7da; color:#721c24; }
+        .rec-hold { background:#fff3cd; color:#856404; }
+        .positive { color:#27ae60; font-weight:600; }
+        .negative { color:#e74c3c; font-weight:600; }
+        .empty { text-align:center; padding:40px; color:#888; font-style:italic; }
+        footer { text-align:center; color:white; padding:30px; opacity:0.7; font-size:0.85em; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>⭐ My Watchlist</h1>
+    </header>
+    <nav>
+        <a href="/">🏠 Home</a>
+        <a href="/watchlist">⭐ Watchlist</a>
+        <a href="/portfolio">💼 Portfolio</a>
+    </nav>
+
+    <div class="card">
+        <h2>Add Stock to Watchlist</h2>
+        <form th:action="@{/watchlist/add}" method="post" class="form-row">
+            <div>
+                <label style="display:block;font-size:0.85em;color:#666;margin-bottom:4px;">Stock</label>
+                <select name="symbol" required style="width:250px;" onchange="document.getElementById('wlName').value=this.options[this.selectedIndex].text.split(' - ')[1]||'';">
+                    <option value="">Select stock...</option>
+                    <option th:each="s : ${popularStocks}" th:value="${s.symbol}" th:text="${s.symbol} + ' - ' + ${s.name}">AAPL</option>
+                </select>
+            </div>
+            <input type="hidden" name="name" id="wlName" value=""/>
+            <button type="submit">➕ Add</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2>Watched Stocks</h2>
+        <div th:if="${#lists.isEmpty(watchlist)}" class="empty">No stocks in watchlist yet. Add one above.</div>
+        <table th:if="${!#lists.isEmpty(watchlist)}">
+            <thead>
+            <tr>
+                <th>Symbol</th>
+                <th>Name</th>
+                <th>Price</th>
+                <th>Change</th>
+                <th>Signal</th>
+                <th>Action</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="item : ${watchlist}">
+                <td><strong th:text="${item.symbol}">AAPL</strong></td>
+                <td th:text="${item.name}">Apple</td>
+                <td th:text="'$' + ${#numbers.formatDecimal(item.stock.currentPrice, 1, 2)}">$189</td>
+                <td th:class="${item.stock.changePercent >= 0} ? 'positive' : 'negative'">
+                    <span th:if="${item.stock.changePercent >= 0}">▲ +</span>
+                    <span th:if="${item.stock.changePercent < 0}">▼ </span>
+                    <span th:text="${#numbers.formatDecimal(item.stock.changePercent, 1, 2)} + '%'">1.1%</span>
+                </td>
+                <td>
+                    <span class="rec-badge" th:classappend="${item.stock.recommendation == 'BUY'} ? 'rec-buy' : (${item.stock.recommendation == 'SELL'} ? 'rec-sell' : 'rec-hold')" th:text="${item.stock.recommendation}">HOLD</span>
+                </td>
+                <td>
+                    <form th:action="@{'/watchlist/remove/' + ${item.id}}" method="post" style="display:inline;">
+                        <button type="submit" class="btn-remove">🗑️ Remove</button>
+                    </form>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <footer>
+        <p>Built by Shivam Shrikhande | Phase 5: Watchlist + H2 Database</p>
+    </footer>
+</div>
+</body>
+</html>
